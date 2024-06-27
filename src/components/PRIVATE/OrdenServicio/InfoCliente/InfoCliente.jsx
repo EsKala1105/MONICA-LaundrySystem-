@@ -1,46 +1,77 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react/prop-types */
 /* eslint-disable no-unused-vars */
-import { Autocomplete, TextInput } from "@mantine/core";
+import { Autocomplete, Button, Select, TextInput } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import React from "react";
 import { documento } from "../../../../services/global";
 import "./infoCliente.scss";
-import axios from "axios";
+import { ScrollArea } from "@mantine/core";
+import { Modal } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { useState } from "react";
 import { useEffect } from "react";
 import ValidIco from "../../../ValidIco/ValidIco";
+import { useDispatch, useSelector } from "react-redux";
+import ActionCliente from "../../../../pages/private/admin/Clientes/ActionCliente/ActionCliente";
+import { updateCliente } from "../../../../redux/actions/aClientes";
 
 const InfoCliente = ({
+  mode,
   paso,
   descripcion,
   changeValue,
   values,
-  iEdit,
   changeICliente,
+  iCliente,
   error,
   touched,
 }) => {
   const [infoClientes, setInfoClientes] = useState([]);
+  const listClientes = useSelector((state) => state.clientes.listClientes);
+  const [filterBy, setFilterBy] = useState("nombre");
+  const [searchedValue, setSearchedValue] = useState("");
+  // const [useSavedClients, setUseSavedClients] = useState(false);
 
-  const handleGetClientes = async (numberDocument) => {
-    try {
-      const response = await axios.get(
-        `${
-          import.meta.env.VITE_BACKEND_URL
-        }/api/lava-ya/get-clientes/${numberDocument}`
-      );
-      const data = response.data;
-      setInfoClientes(data);
-      return data;
-    } catch (error) {
-      console.error("Error al obtener los datos:", error.message);
-    }
+  const [
+    mUpdateCliente,
+    { open: openModalUpdateCliente, close: closeModalUpdateCliente },
+  ] = useDisclosure(false);
+
+  const dispatch = useDispatch();
+
+  const handleGetClientes = async (value) => {
+    const regex = new RegExp(value, "i"); // 'i' para que sea insensible a mayúsculas/minúsculas
+    const resultados = listClientes.filter((cliente) =>
+      regex.test(cliente[filterBy])
+    );
+    setInfoClientes(resultados);
+  };
+
+  const handleUpdateCliente = async (datosCliente) => {
+    dispatch(updateCliente({ id: iCliente._id, datosCliente }));
+    closeModalUpdateCliente();
   };
 
   useEffect(() => {
-    changeValue("modoDescuento", "Promocion");
-  }, [values.dni]);
+    if (iCliente) {
+      const infoChange = listClientes.find((cli) => cli._id === iCliente._id);
+      if (infoChange) {
+        changeICliente(infoChange);
+        changeValue("dni", infoChange.dni);
+        changeValue("name", infoChange.nombre);
+        changeValue("celular", infoChange.phone);
+        changeValue("direccion", infoChange.direccion);
+      } else {
+        setSearchedValue();
+        changeICliente();
+        changeValue("dni", "");
+        changeValue("name", "");
+        changeValue("celular", "");
+        changeValue("direccion", "");
+      }
+    }
+  }, [listClientes]);
 
   return (
     <div className="info-cliente">
@@ -60,34 +91,90 @@ const InfoCliente = ({
           style={{ paddingBottom: "8px" }}
           readOnly
         />
+        {mode !== "UPDATE" ? (
+          <>
+            <hr />
+            <div className="tipo-registro-cli">
+              <Select
+                style={{ width: "135px" }}
+                label="Buscar por :"
+                value={filterBy}
+                onChange={(value) => {
+                  changeICliente(null);
+                  setFilterBy(value);
+                  changeValue("dni", "");
+                  changeValue("name", "");
+                  changeValue("celular", "");
+                  changeValue("direccion", "");
+                  setSearchedValue("");
+                }}
+                data={[
+                  { value: "nombre", label: "Nombre" },
+                  { value: "dni", label: documento },
+                  { value: "celular", label: "Teléfono" },
+                ]}
+              />
+              <Autocomplete
+                label=" "
+                autoComplete="off"
+                onChange={(value) => {
+                  setSearchedValue(value);
+                  handleGetClientes(value);
+                  changeICliente(null);
+                }}
+                value={searchedValue}
+                onItemSubmit={(selected) => {
+                  const cliente = infoClientes.find(
+                    (obj) => obj[filterBy] === selected.value
+                  );
+                  changeICliente(cliente);
+                  changeValue("dni", cliente?.dni || "");
+                  changeValue("name", cliente?.nombre || "");
+                  changeValue("celular", cliente?.phone || "");
+                  changeValue("direccion", cliente?.direccion || "");
+                  setSearchedValue("");
+                }}
+                data={
+                  searchedValue
+                    ? infoClientes
+                        .filter((obj) => obj[filterBy]) // Se asegura de que haya un valor en el campo filterBy
+                        .map((obj) => obj[filterBy])
+                    : []
+                }
+              />
+              {iCliente ? (
+                <Button
+                  className="btn-update-info-user"
+                  color="orange"
+                  type="button"
+                  onClick={() => {
+                    openModalUpdateCliente();
+                  }}
+                >
+                  <i className="fa-solid fa-user-pen" />
+                </Button>
+              ) : null}
+
+              <Button
+                className="btn-cancel-filter"
+                type="button"
+                onClick={() => {
+                  changeICliente(null);
+                  setFilterBy("nombre");
+                  changeValue("dni", "");
+                  changeValue("name", "");
+                  changeValue("celular", "");
+                  changeValue("direccion", "");
+                  setSearchedValue("");
+                }}
+              >
+                X
+              </Button>
+            </div>
+          </>
+        ) : null}
+
         <hr />
-        <Autocomplete
-          className="input-info"
-          name="dni"
-          onChange={(dni) => {
-            handleGetClientes(dni);
-            changeValue("dni", dni);
-            changeICliente(null);
-          }}
-          autoFocus
-          label={`${documento} :`}
-          placeholder={`Ingrese ${documento}`}
-          value={values.dni}
-          onItemSubmit={(selected) => {
-            const cliente = infoClientes.find(
-              (obj) => obj.dni === selected.value
-            );
-            changeICliente(cliente);
-            changeValue("name", cliente.nombre);
-            changeValue("phone", cliente.phone);
-            changeValue("direccion", cliente.direccion);
-          }}
-          autoComplete="off"
-          data={
-            infoClientes.length > 0 ? infoClientes.map((obj) => obj.dni) : []
-          }
-          disabled={iEdit ? (iEdit.modeEditAll ? false : true) : false}
-        />
         <div className="input-info-required">
           <TextInput
             name="name"
@@ -98,10 +185,11 @@ const InfoCliente = ({
               changeValue("name", valor);
             }}
             value={values.name}
+            readOnly={iCliente}
+            disabled={mode === "UPDATE"}
           />
           {error.name && touched.name && ValidIco({ mensaje: error.name })}
         </div>
-
         <TextInput
           name="direccion"
           className="input-info"
@@ -112,19 +200,48 @@ const InfoCliente = ({
             changeValue("direccion", valor);
           }}
           value={values.direccion}
+          readOnly={iCliente}
+          disabled={mode === "UPDATE"}
         />
         <TextInput
-          name="phone"
+          name="celular"
           className="input-info"
           label="Celular :"
           autoComplete="off"
           onChange={(e) => {
             const valor = e.target.value;
-            changeValue("phone", valor);
+            changeValue("celular", valor);
           }}
-          value={values.phone}
+          value={values.celular}
+          readOnly={iCliente}
+          disabled={mode === "UPDATE"}
+        />
+        <TextInput
+          name="dni"
+          className="input-info"
+          label={`${documento} :`}
+          autoComplete="off"
+          onChange={(e) => {
+            const valor = e.target.value;
+            changeValue("dni", valor);
+          }}
+          value={values.dni}
+          readOnly={iCliente}
+          disabled={mode === "UPDATE"}
         />
       </div>
+      <Modal
+        opened={mUpdateCliente}
+        onClose={() => {
+          closeModalUpdateCliente();
+        }}
+        size="auto"
+        scrollAreaComponent={ScrollArea.Autosize}
+        title="¿ Actualizar Informacion de Cliente ?"
+        centered
+      >
+        <ActionCliente info={iCliente} onAction={handleUpdateCliente} />
+      </Modal>
     </div>
   );
 };
