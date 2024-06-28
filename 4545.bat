@@ -5,6 +5,6 @@ cls
 
 c:
 cd\
-cd Eskala\laundry-system
+cd Eskala\MONICA-LaundrySystem-
 @pnpm run dev
 goto End
