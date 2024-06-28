@@ -5,6 +5,6 @@ cls
 
 c:
 cd\
-cd Program Files\fainess\laundry-system
+cd Eskala\laundry-system
 @pnpm run dev
 goto End
